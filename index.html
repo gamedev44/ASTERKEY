@@ -1,187 +1,274 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Aster-Key.JS v2.5: Real-time background removal with customizable UI and chroma control.">
-    <meta name="author" content="Asterisk">
-    <meta name="theme-color" content="#019147">
-    <meta property="og:title" content="Aster-Key.JS v2.5">
-    <meta property="og:description" content="Toggle UI, adjust chroma settings, and capture screenshots in real time.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://yourdomain.com/aster-key-js">
-    <meta property="og:image" content="https://yourdomain.com/preview.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Aster-Key.JS v2.5">
-    <meta name="twitter:description" content="Real-time background removal and UI customization with Aster-Key.JS.">
-    <meta name="twitter:image" content="https://yourdomain.com/preview.png">
-    <title>Aster-Key.JS v2.5</title>
-    <style>
-        :root {
-            --primary-bg: #019147;
-            --control-bg: rgba(255,255,255,0.9);
-            --btn-bg: #ffffff;
-            --btn-hover: #f2f2f2;
-            --btn-shadow: rgba(0, 0, 0, 0.2);
-            --accent: #019147;
-        }
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { height: 100vh; display: flex; background: var(--primary-bg); overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        video { display: none; }
-        canvas { flex: 1; width: 100%; height: 100%; display: block; }
-        .controls {
-            position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%);
-            display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center;
-            background: var(--control-bg); padding: 1rem 1.5rem; border-radius: 12px;
-            box-shadow: 0 8px 16px var(--btn-shadow); z-index: 10; transition: opacity 0.3s ease;
-        }
-        .controls.hidden { opacity: 0; pointer-events: none; }
-        .controls button, .controls input {
-            padding: 0.6rem 1rem; font-size: 0.95rem; border: none; border-radius: 6px;
-            background: var(--btn-bg); box-shadow: 0 4px 8px var(--btn-shadow); cursor: pointer;
-            transition: background 0.2s ease, transform 0.1s ease;
-        }
-        .controls button:hover, .controls input:hover { background: var(--btn-hover); transform: translateY(-1px); }
-        .controls input[type="range"] { width: 120px; accent-color: var(--accent); }
-        .controls input[type="color"] { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; }
-        @media (max-width: 600px) {
-            .controls { flex-direction: column; bottom: 2%; padding: 0.75rem; }
-            .controls button, .controls input { width: 90%; }
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aster-Key.JS v2.5: Real-time background removal with face-aware auto-tracking and UI control.">
+  <meta name="author" content="Asterisk">
+  <meta name="theme-color" content="#019147">
+  <meta property="og:title" content="Aster-Key.JS v2.5">
+  <meta property="og:description" content="Chroma removal, auto face-tracking, zoom/pan controls, and capture.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yourdomain.com/aster-key-js">
+  <meta property="og:image" content="https://yourdomain.com/preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Aster-Key.JS v2.5">
+  <meta name="twitter:description" content="Real-time background removal and face-aware UI customization.">
+  <meta name="twitter:image" content="https://yourdomain.com/preview.png">
+  <title>Aster-Key.JS v2.5</title>
+  <style>
+    :root {
+      --primary-bg: #019147;
+      --control-bg: rgba(255,255,255,0.9);
+      --btn-bg: #ffffff;
+      --btn-hover: #f2f2f2;
+      --btn-shadow: rgba(0,0,0,0.2);
+      --accent: #019147;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { height: 100vh; display: flex; background: var(--primary-bg); overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    video { display: none; }
+    canvas { flex: 1; width: 100%; height: 100%; display: block; }
+    .controls {
+      position: absolute;
+      bottom: 5%; left: 50%; transform: translateX(-50%);
+      display: flex; flex-wrap: wrap; gap: .5rem;
+      background: var(--control-bg); padding: 1rem 1.5rem;
+      border-radius: 12px; box-shadow: 0 8px 16px var(--btn-shadow);
+      z-index: 10; transition: opacity .3s;
+    }
+    .controls.hidden { opacity: 0; pointer-events: none; }
+    .controls button, .controls label {
+      display: flex; align-items: center; padding: .6rem 1rem;
+      font-size: .95rem; border: none; border-radius: 6px;
+      background: var(--btn-bg); box-shadow: 0 4px 8px var(--btn-shadow);
+      cursor: pointer; transition: background .2s, transform .1s;
+    }
+    .controls button:hover, .controls label:hover {
+      background: var(--btn-hover); transform: translateY(-1px);
+    }
+    .controls label span { margin-right: .5rem; }
+    .controls input[type=range] { width: 120px; accent-color: var(--accent); }
+    .controls input[type=color] { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; }
+    .controls input[type=checkbox] { margin-right: .3rem; transform: scale(1.2); }
+    @media(max-width:600px) {
+      .controls { flex-direction: column; bottom: 2%; padding: .75rem; }
+      .controls button, .controls label { width: 90%; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <div class="controls" id="controls">
-        <button id="toggleUI">Hide UI (Hotkey: U)</button>
-        <button id="toggleChroma">Chroma: On</button>
-        <button id="toggleMode">Mode: 0</button>
-        <label title="Threshold">
-            <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.1">
-        </label>
-        <label title="Background Color">
-            <input type="color" id="bgColor" value="#019147">
-        </label>
-        <button id="uploadLocal">Upload BG</button>
-        <input type="file" id="fileBG" accept="image/*" style="display:none">
-        <button id="uploadURL">BG URL</button>
-        <button id="snapshot">Capture</button>
-    </div>
-    <script>
-        const video = document.createElement('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const controls = document.getElementById('controls');
+  <canvas id="canvas"></canvas>
+  <div class="controls" id="controls">
+    <button id="toggleUI" title="Toggle UI (U)">Hide UI (U)</button>
+    <button id="toggleChroma" title="Toggle chroma">Chroma: On</button>
+    <button id="toggleMode" title="Model select">Mode: 0</button>
+    <label title="Face-auto pan/zoom"><input type="checkbox" id="autoTrack"> <span>Auto Track</span></label>
+    <label title="Mask expand"><span>Expand</span><input type="range" id="expand" min="0" max="100" step="0.1" value="5"></label>
+    <label title="Mask feather"><span>Feather</span><input type="range" id="feather" min="0" max="50" step="1" value="15"></label>
+    <label title="Manual Zoom level"><span>Zoom</span><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"></label>
+    <label title="Manual Pan X"><span>Pan X</span><input type="range" id="panX" min="-0.5" max="0.5" step="0.01" value="0"></label>
+    <label title="Manual Pan Y"><span>Pan Y</span><input type="range" id="panY" min="-0.5" max="0.5" step="0.01" value="0"></label>
+    <label title="Auto Zoom factor"><span>Auto Zoom</span><input type="range" id="autoZoom" min="0.5" max="2" step="0.01" value="1"></label>
+    <label title="Auto Pan X offset"><span>Auto Off X</span><input type="range" id="autoOffX" min="-0.5" max="0.5" step="0.01" value="0"></label>
+    <label title="Auto Pan Y offset"><span>Auto Off Y</span><input type="range" id="autoOffY" min="-0.5" max="0.5" step="0.01" value="0"></label>
+    <label title="Background color"><span>BG Color</span><input type="color" id="bgColor" value="#019147"></label>
+    <button id="uploadLocal" title="Upload BG">Upload BG</button>
+    <input type="file" id="fileBG" accept="image/*" style="display:none">
+    <button id="uploadURL" title="BG URL">BG URL</button>
+    <button id="snapshot" title="Capture">Capture</button>
+  </div>
+  <script>
+    const video = document.createElement('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const controls = document.getElementById('controls');
 
-        let seg, cam;
-        let mode = 0;
-        let maskThreshold = 0.1;
-        let bgColor = '#019147';
-        let bgImage = null;
-        let chromaEnabled = true;
-        let uiVisible = true;
+    let seg, cam, faceMesh;
+    let mode = 0;
+    let expand = 5;
+    let feather = 15;
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let autoZoom = 1;
+    let autoOffX = 0;
+    let autoOffY = 0;
+    let bgColor = '#019147';
+    let bgImage = null;
+    let chroma = true;
+    let uiVisible = true;
+    let autoTrack = false;
+    let faceBox = { x: 0.5, y: 0.5, w: 0, h: 0 };
 
-        // offscreen for mask processing
-        const maskCanvas = document.createElement('canvas');
-        const maskCtx = maskCanvas.getContext('2d');
+    const maskCan = document.createElement('canvas');
+    const maskCtx = maskCan.getContext('2d');
 
-        document.getElementById('toggleUI').addEventListener('click', toggleUI);
-        document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'u') toggleUI(); });
-        function toggleUI() {
-            uiVisible = !uiVisible;
-            controls.classList.toggle('hidden', !uiVisible);
-            document.getElementById('toggleUI').innerText = uiVisible ? 'Hide UI (Hotkey: U)' : 'Show UI (Hotkey: U)';
-        }
+    // UI events
+    document.getElementById('toggleUI').addEventListener('click', () => {
+      uiVisible = !uiVisible;
+      controls.classList.toggle('hidden', !uiVisible);
+      document.getElementById('toggleUI').innerText = uiVisible ? 'Hide UI (U)' : 'Show UI (U)';
+    });
+    document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'u') document.getElementById('toggleUI').click(); });
 
-        document.getElementById('toggleChroma').addEventListener('click', () => {
-            chromaEnabled = !chromaEnabled;
-            document.getElementById('toggleChroma').innerText = `Chroma: ${chromaEnabled ? 'On' : 'Off'}`;
+    document.getElementById('toggleChroma').addEventListener('click', () => {
+      chroma = !chroma;
+      document.getElementById('toggleChroma').innerText = `Chroma: ${chroma ? 'On' : 'Off'}`;
+    });
+
+    document.getElementById('toggleMode').addEventListener('click', () => {
+      mode ^= 1;
+      seg.setOptions({ modelSelection: mode });
+      document.getElementById('toggleMode').innerText = `Mode: ${mode}`;
+    });
+
+    document.getElementById('autoTrack').addEventListener('change', e => autoTrack = e.target.checked);
+    document.getElementById('expand').addEventListener('input', e => expand = parseFloat(e.target.value));
+    document.getElementById('feather').addEventListener('input', e => feather = parseFloat(e.target.value));
+    document.getElementById('zoom').addEventListener('input', e => zoom = parseFloat(e.target.value));
+    document.getElementById('panX').addEventListener('input', e => panX = parseFloat(e.target.value));
+    document.getElementById('panY').addEventListener('input', e => panY = parseFloat(e.target.value));
+    document.getElementById('autoZoom').addEventListener('input', e => autoZoom = parseFloat(e.target.value));
+    document.getElementById('autoOffX').addEventListener('input', e => autoOffX = parseFloat(e.target.value));
+    document.getElementById('autoOffY').addEventListener('input', e => autoOffY = parseFloat(e.target.value));
+    document.getElementById('bgColor').addEventListener('input', e => { bgColor = e.target.value; bgImage = null; });
+
+    document.getElementById('uploadLocal').addEventListener('click', () => fileBG.click());
+    document.getElementById('fileBG').addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const img = new Image();
+      img.src = URL.createObjectURL(f);
+      img.onload = () => bgImage = img;
+    });
+
+    document.getElementById('uploadURL').addEventListener('click', () => {
+      const u = prompt('BG URL:');
+      if (!u) return;
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.src = u;
+      img.onload = () => bgImage = img;
+    });
+
+    document.getElementById('snapshot').addEventListener('click', () => {
+      canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `capture_${Date.now()}.png`;
+        a.click();
+      });
+    });
+
+    // Face mesh callback
+    function onFace(results) {
+      if (results.multiFaceLandmarks.length) {
+        const lm = results.multiFaceLandmarks[0];
+        let minX = 1, minY = 1, maxX = 0, maxY = 0;
+        lm.forEach(p => {
+          minX = Math.min(minX, p.x);
+          minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x);
+          maxY = Math.max(maxY, p.y);
         });
+        faceBox = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, w: (maxX - minX), h: (maxY - minY) };
+      }
+    }
 
-        document.getElementById('toggleMode').addEventListener('click', () => {
-            mode = 1 - mode;
-            seg.setOptions({ modelSelection: mode });
-            document.getElementById('toggleMode').innerText = `Mode: ${mode}`;
-        });
+    // Composite frame
+    function onResults(r) {
+      if (!r.segmentationMask) return;
+      const w = video.videoWidth, h = video.videoHeight;
+      canvas.width = w; canvas.height = h;
+      maskCan.width = w; maskCan.height = h;
 
-        document.getElementById('threshold').addEventListener('input', e => {
-            maskThreshold = parseFloat(e.target.value);
-        });
+      // Mask expand & threshold
+      maskCtx.clearRect(0, 0, w, h);
+      maskCtx.filter = `blur(${expand}px)`;
+      maskCtx.drawImage(r.segmentationMask, 0, 0, w, h);
+      maskCtx.filter = 'none';
+      const imgData = maskCtx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i + 3] = data[i] > 128 ? 255 : 0;
+      }
+      maskCtx.putImageData(imgData, 0, 0);
 
-        document.getElementById('bgColor').addEventListener('input', e => {
-            bgColor = e.target.value;
-            bgImage = null;
-        });
+      // Feather
+      if (feather > 0) {
+        const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+        const tctx = tmp.getContext('2d');
+        tctx.putImageData(maskCtx.getImageData(0, 0, w, h), 0, 0);
+        maskCtx.clearRect(0, 0, w, h);
+        maskCtx.filter = `blur(${feather}px)`;
+        maskCtx.drawImage(tmp, 0, 0);
+        maskCtx.filter = 'none';
+      }
 
-        document.getElementById('uploadLocal').addEventListener('click', () => document.getElementById('fileBG').click());
-        document.getElementById('fileBG').addEventListener('change', e => {
-            const file = e.target.files[0]; if (!file) return;
-            const img = new Image(); img.src = URL.createObjectURL(file);
-            img.onload = () => bgImage = img;
-        });
+      // Auto track adjustments
+      if (autoTrack && faceBox.w > 0) {
+        const computedZoom = (1 / faceBox.w) * autoZoom;
+        zoom = computedZoom;
+        panX = (0.5 - faceBox.x) + autoOffX;
+        panY = (0.5 - faceBox.y) + autoOffY;
+        document.getElementById('zoom').value = zoom.toFixed(2);
+        document.getElementById('panX').value = panX.toFixed(2);
+        document.getElementById('panY').value = panY.toFixed(2);
+      }
 
-        document.getElementById('uploadURL').addEventListener('click', () => {
-            const url = prompt('BG Image URL:'); if (!url) return;
-            const img = new Image(); img.crossOrigin = 'Anonymous'; img.src = url;
-            img.onload = () => bgImage = img;
-        });
+      // Draw
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      const cx = w / 2, cy = h / 2;
+      ctx.translate(cx, cy);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-cx + panX * w, -cy + panY * h);
 
-        document.getElementById('snapshot').addEventListener('click', () => {
-            canvas.toBlob(blob => {
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                a.download = `capture_${Date.now()}.png`; a.click();
-            });
-        });
+      if (chroma) {
+        ctx.drawImage(maskCan, 0, 0, w, h);
+        ctx.globalCompositeOperation = 'source-in';
+        ctx.drawImage(video, 0, 0, w, h);
+        ctx.globalCompositeOperation = 'destination-over';
+        if (bgImage) ctx.drawImage(bgImage, 0, 0, w, h);
+        else { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, w, h); }
+        ctx.globalCompositeOperation = 'source-over';
+      } else {
+        ctx.drawImage(video, 0, 0, w, h);
+      }
 
-        function onResults(results) {
-            if (!results.segmentationMask) return;
-            const w = video.videoWidth, h = video.videoHeight;
-            canvas.width = w; canvas.height = h;
-            maskCanvas.width = w; maskCanvas.height = h;
+      ctx.restore();
+    }
 
-            ctx.clearRect(0, 0, w, h);
-
-            if (chromaEnabled) {
-                // draw mask to offscreen
-                maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
-                const imgData = maskCtx.getImageData(0, 0, w, h);
-                const data = imgData.data;
-                // apply threshold
-                const t = maskThreshold * 255;
-                for (let i = 0; i < data.length; i += 4) {
-                    data[i+3] = data[i] > t ? 255 : 0;
-                }
-                maskCtx.putImageData(imgData, 0, 0);
-
-                // composite
-                ctx.drawImage(maskCanvas, 0, 0, w, h);
-                ctx.globalCompositeOperation = 'source-in';
-                ctx.drawImage(video, 0, 0, w, h);
-                ctx.globalCompositeOperation = 'destination-over';
-                if (bgImage) ctx.drawImage(bgImage, 0, 0, w, h);
-                else { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, w, h); }
-                ctx.globalCompositeOperation = 'source-over';
-            } else {
-                ctx.drawImage(video, 0, 0, w, h);
-            }
-        }
-
-        async function setup() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream; await video.play();
-            } catch (e) { console.error('Webcam error:', e); return; }
-
-            seg = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
-            seg.setOptions({ modelSelection: mode });
-            seg.onResults(onResults);
-
-            cam = new Camera(video, { onFrame: async () => await seg.send({ image: video }), width: 640, height: 480 });
-            cam.start();
-        }
-        setup();
-    </script>
+    async function setup() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        await video.play();
+      } catch (e) {
+        console.error('Webcam error:', e);
+        return;
+      }
+      seg = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
+      seg.setOptions({ modelSelection: 0 });
+      seg.onResults(onResults);
+      faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+      faceMesh.setOptions({ maxNumFaces: 1, minDetectionConfidence: 0.5 });
+      faceMesh.onResults(onFace);
+      cam = new Camera(video, {
+        onFrame: async () => {
+          await seg.send({ image: video });
+          if (autoTrack) await faceMesh.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+      cam.start();
+    }
+    setup();
+  </script>
 </body>
 </html>
