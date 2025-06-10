@@ -3,33 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Aster-Key.JS v2.5: Real-time background removal and custom TV frame overlay for webcam video.">
+    <meta name="description" content="Aster-Key.JS v2.5: Real-time background removal with customizable UI and chroma control.">
     <meta name="author" content="Asterisk">
     <meta name="theme-color" content="#019147">
     <meta property="og:title" content="Aster-Key.JS v2.5">
-    <meta property="og:description" content="Experience real-time chroma removal and TV frame overlay with Aster-Key.JS v2.5. Customize backgrounds, frames, and capture screenshots.">
+    <meta property="og:description" content="Toggle UI, adjust chroma settings, and capture screenshots in real time.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yourdomain.com/aster-key-js">
-    <meta property="og:image" content="https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg">
+    <meta property="og:image" content="https://yourdomain.com/preview.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Aster-Key.JS v2.5">
-    <meta name="twitter:description" content="Real-time background removal and TV frame overlay for seamless streaming experiences.">
-    <meta name="twitter:image" content="https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg">
+    <meta name="twitter:description" content="Real-time background removal and UI customization with Aster-Key.JS.">
+    <meta name="twitter:image" content="https://yourdomain.com/preview.png">
     <title>Aster-Key.JS v2.5</title>
     <style>
         :root {
             --primary-bg: #019147;
-            --btn-bg: #fff;
-            --btn-hover: #f0f0f0;
-            --btn-shadow: rgba(0,0,0,0.15);
+            --control-bg: rgba(255,255,255,0.9);
+            --btn-bg: #ffffff;
+            --btn-hover: #f2f2f2;
+            --btn-shadow: rgba(0, 0, 0, 0.2);
+            --accent: #019147;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             height: 100vh;
             display: flex;
             background: var(--primary-bg);
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
         }
         video { display: none; }
         canvas {
@@ -40,23 +46,28 @@
         }
         .controls {
             position: absolute;
-            bottom: 2vh;
+            bottom: 5%;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             flex-wrap: wrap;
-            gap: 1vw;
+            gap: 0.5rem;
             justify-content: center;
             align-items: center;
+            background: var(--control-bg);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px var(--btn-shadow);
             z-index: 10;
-            width: 95vw;
+            transition: opacity 0.3s ease;
         }
+        .controls.hidden { opacity: 0; pointer-events: none; }
         .controls button,
         .controls input {
-            padding: 0.8em 1.5em;
-            font-size: 1em;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             background: var(--btn-bg);
             box-shadow: 0 4px 8px var(--btn-shadow);
             cursor: pointer;
@@ -65,15 +76,26 @@
         .controls button:hover,
         .controls input:hover {
             background: var(--btn-hover);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
         }
-        .controls input[type=range] {
+        .controls input[type="range"] {
             width: 120px;
+            accent-color: var(--accent);
+        }
+        .controls input[type="color"] {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border-radius: 50%;
         }
         @media (max-width: 600px) {
-            .controls { flex-direction: column; gap: 1vh; }
+            .controls {
+                flex-direction: column;
+                bottom: 2%;
+                padding: 0.75rem;
+            }
             .controls button,
-            .controls input { width: 80vw; }
+            .controls input { width: 90%; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
@@ -81,14 +103,16 @@
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <div class="controls">
-        <button id="toggleUI">Hide UI</button>
+    <div class="controls" id="controls">
+        <button id="toggleUI">Hide UI (Hotkey: U)</button>
         <button id="toggleChroma">Chroma: On</button>
-        <button id="toggleFrame">TV Frame: On</button>
-        <button id="uploadFrameURL">Frame URL</button>
         <button id="toggleMode">Mode: 0</button>
-        <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.1">
-        <input type="color" id="bgColor" value="#019147">
+        <label title="Threshold">
+            <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.1">
+        </label>
+        <label title="Background Color">
+            <input type="color" id="bgColor" value="#019147">
+        </label>
         <button id="uploadLocal">Upload BG</button>
         <input type="file" id="fileBG" accept="image/*" style="display:none">
         <button id="uploadURL">BG URL</button>
@@ -98,39 +122,27 @@
         const video = document.createElement('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        const controls = document.getElementById('controls');
 
         let seg, cam;
         let mode = 0;
         let maskThreshold = 0.1;
         let bgColor = '#019147';
         let bgImage = null;
-        let frameImage = new Image();
-        let frameEnabled = true;
         let chromaEnabled = true;
         let uiVisible = true;
 
-        frameImage.crossOrigin = 'Anonymous';
-        frameImage.src = 'https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg';
-
-        document.getElementById('toggleUI').addEventListener('click', () => {
+        document.getElementById('toggleUI').addEventListener('click', () => toggleUI());
+        document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'u') toggleUI(); });
+        function toggleUI() {
             uiVisible = !uiVisible;
-            document.querySelector('.controls').style.display = uiVisible ? 'flex' : 'none';
-            document.getElementById('toggleUI').innerText = uiVisible ? 'Hide UI' : 'Show UI';
-        });
+            controls.classList.toggle('hidden', !uiVisible);
+            document.getElementById('toggleUI').innerText = uiVisible ? 'Hide UI (Hotkey: U)' : 'Show UI (Hotkey: U)';
+        }
 
         document.getElementById('toggleChroma').addEventListener('click', () => {
             chromaEnabled = !chromaEnabled;
             document.getElementById('toggleChroma').innerText = `Chroma: ${chromaEnabled ? 'On' : 'Off'}`;
-        });
-
-        document.getElementById('toggleFrame').addEventListener('click', () => {
-            frameEnabled = !frameEnabled;
-            document.getElementById('toggleFrame').innerText = `TV Frame: ${frameEnabled ? 'On' : 'Off'}`;
-        });
-
-        document.getElementById('uploadFrameURL').addEventListener('click', () => {
-            const url = prompt('Frame Image URL:');
-            if (url) frameImage.src = url;
         });
 
         document.getElementById('toggleMode').addEventListener('click', () => {
@@ -148,10 +160,7 @@
             bgImage = null;
         });
 
-        document.getElementById('uploadLocal').addEventListener('click', () => {
-            document.getElementById('fileBG').click();
-        });
-
+        document.getElementById('uploadLocal').addEventListener('click', () => document.getElementById('fileBG').click());
         document.getElementById('fileBG').addEventListener('change', e => {
             const file = e.target.files[0];
             if (!file) return;
@@ -185,25 +194,19 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (chromaEnabled) {
-                // Draw mask
                 ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
                 ctx.globalCompositeOperation = 'source-in';
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 ctx.globalCompositeOperation = 'destination-over';
 
-                if (bgImage) {
-                    ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-                } else {
+                if (bgImage) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+                else {
                     ctx.fillStyle = bgColor;
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
                 ctx.globalCompositeOperation = 'source-over';
             } else {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            }
-
-            if (frameEnabled && frameImage.complete) {
-                ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
             }
         }
 
@@ -217,26 +220,17 @@
                 return;
             }
 
-            seg = new SelfieSegmentation({
-                locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
-            });
+            seg = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
             seg.setOptions({ modelSelection: mode });
             seg.onResults(onResults);
 
             cam = new Camera(video, {
-                onFrame: async () => {
-                    try {
-                        await seg.send({ image: video });
-                    } catch (err) {
-                        console.error('Segmentation error:', err);
-                    }
-                },
+                onFrame: async () => await seg.send({ image: video }),
                 width: 640,
                 height: 480
             });
             cam.start();
         }
-
         setup();
     </script>
 </body>
