@@ -25,77 +25,28 @@
             --btn-shadow: rgba(0, 0, 0, 0.2);
             --accent: #019147;
         }
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            height: 100vh;
-            display: flex;
-            background: var(--primary-bg);
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { height: 100vh; display: flex; background: var(--primary-bg); overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
         video { display: none; }
-        canvas {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+        canvas { flex: 1; width: 100%; height: 100%; display: block; }
         .controls {
-            position: absolute;
-            bottom: 5%;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            justify-content: center;
-            align-items: center;
-            background: var(--control-bg);
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px var(--btn-shadow);
-            z-index: 10;
-            transition: opacity 0.3s ease;
+            position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%);
+            display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center;
+            background: var(--control-bg); padding: 1rem 1.5rem; border-radius: 12px;
+            box-shadow: 0 8px 16px var(--btn-shadow); z-index: 10; transition: opacity 0.3s ease;
         }
         .controls.hidden { opacity: 0; pointer-events: none; }
-        .controls button,
-        .controls input {
-            padding: 0.6rem 1rem;
-            font-size: 0.95rem;
-            border: none;
-            border-radius: 6px;
-            background: var(--btn-bg);
-            box-shadow: 0 4px 8px var(--btn-shadow);
-            cursor: pointer;
+        .controls button, .controls input {
+            padding: 0.6rem 1rem; font-size: 0.95rem; border: none; border-radius: 6px;
+            background: var(--btn-bg); box-shadow: 0 4px 8px var(--btn-shadow); cursor: pointer;
             transition: background 0.2s ease, transform 0.1s ease;
         }
-        .controls button:hover,
-        .controls input:hover {
-            background: var(--btn-hover);
-            transform: translateY(-1px);
-        }
-        .controls input[type="range"] {
-            width: 120px;
-            accent-color: var(--accent);
-        }
-        .controls input[type="color"] {
-            width: 2rem;
-            height: 2rem;
-            padding: 0;
-            border-radius: 50%;
-        }
+        .controls button:hover, .controls input:hover { background: var(--btn-hover); transform: translateY(-1px); }
+        .controls input[type="range"] { width: 120px; accent-color: var(--accent); }
+        .controls input[type="color"] { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; }
         @media (max-width: 600px) {
-            .controls {
-                flex-direction: column;
-                bottom: 2%;
-                padding: 0.75rem;
-            }
-            .controls button,
-            .controls input { width: 90%; }
+            .controls { flex-direction: column; bottom: 2%; padding: 0.75rem; }
+            .controls button, .controls input { width: 90%; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
@@ -132,7 +83,11 @@
         let chromaEnabled = true;
         let uiVisible = true;
 
-        document.getElementById('toggleUI').addEventListener('click', () => toggleUI());
+        // offscreen for mask processing
+        const maskCanvas = document.createElement('canvas');
+        const maskCtx = maskCanvas.getContext('2d');
+
+        document.getElementById('toggleUI').addEventListener('click', toggleUI);
         document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'u') toggleUI(); });
         function toggleUI() {
             uiVisible = !uiVisible;
@@ -162,73 +117,68 @@
 
         document.getElementById('uploadLocal').addEventListener('click', () => document.getElementById('fileBG').click());
         document.getElementById('fileBG').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
+            const file = e.target.files[0]; if (!file) return;
+            const img = new Image(); img.src = URL.createObjectURL(file);
             img.onload = () => bgImage = img;
         });
 
         document.getElementById('uploadURL').addEventListener('click', () => {
-            const url = prompt('BG Image URL:');
-            if (!url) return;
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.src = url;
+            const url = prompt('BG Image URL:'); if (!url) return;
+            const img = new Image(); img.crossOrigin = 'Anonymous'; img.src = url;
             img.onload = () => bgImage = img;
         });
 
         document.getElementById('snapshot').addEventListener('click', () => {
             canvas.toBlob(blob => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `capture_${Date.now()}.png`;
-                a.click();
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `capture_${Date.now()}.png`; a.click();
             });
         });
 
         function onResults(results) {
             if (!results.segmentationMask) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const w = video.videoWidth, h = video.videoHeight;
+            canvas.width = w; canvas.height = h;
+            maskCanvas.width = w; maskCanvas.height = h;
+
+            ctx.clearRect(0, 0, w, h);
 
             if (chromaEnabled) {
-                ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-                ctx.globalCompositeOperation = 'source-in';
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                ctx.globalCompositeOperation = 'destination-over';
-
-                if (bgImage) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-                else {
-                    ctx.fillStyle = bgColor;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // draw mask to offscreen
+                maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+                const imgData = maskCtx.getImageData(0, 0, w, h);
+                const data = imgData.data;
+                // apply threshold
+                const t = maskThreshold * 255;
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i+3] = data[i] > t ? 255 : 0;
                 }
+                maskCtx.putImageData(imgData, 0, 0);
+
+                // composite
+                ctx.drawImage(maskCanvas, 0, 0, w, h);
+                ctx.globalCompositeOperation = 'source-in';
+                ctx.drawImage(video, 0, 0, w, h);
+                ctx.globalCompositeOperation = 'destination-over';
+                if (bgImage) ctx.drawImage(bgImage, 0, 0, w, h);
+                else { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, w, h); }
                 ctx.globalCompositeOperation = 'source-over';
             } else {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0, w, h);
             }
         }
 
         async function setup() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                await video.play();
-            } catch (e) {
-                console.error('Webcam error:', e);
-                return;
-            }
+                video.srcObject = stream; await video.play();
+            } catch (e) { console.error('Webcam error:', e); return; }
 
             seg = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
             seg.setOptions({ modelSelection: mode });
             seg.onResults(onResults);
 
-            cam = new Camera(video, {
-                onFrame: async () => await seg.send({ image: video }),
-                width: 640,
-                height: 480
-            });
+            cam = new Camera(video, { onFrame: async () => await seg.send({ image: video }), width: 640, height: 480 });
             cam.start();
         }
         setup();
