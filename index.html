@@ -15,7 +15,6 @@
     <meta name="twitter:title" content="Aster-Key.JS v2.5">
     <meta name="twitter:description" content="Real-time background removal and TV frame overlay for seamless streaming experiences.">
     <meta name="twitter:image" content="https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg">
-    
     <title>Aster-Key.JS v2.5</title>
     <style>
         :root {
@@ -24,17 +23,57 @@
             --btn-hover: #f0f0f0;
             --btn-shadow: rgba(0,0,0,0.15);
         }
-        * { box-sizing: border-box; margin:0; padding:0 }
-        body { height:100vh; display:flex; background:var(--primary-bg); overflow:hidden; font-family:Arial,sans-serif }
-        video { display:none }
-        canvas { flex:1; width:100%; height:100%; display:block }
-        .controls { position:absolute; bottom:2vh; left:50%; transform:translateX(-50%); display:flex; flex-wrap:wrap; gap:1vw; justify-content:center; align-items:center; z-index:10; width:95vw }
-        .controls button, .controls input { padding:.8em 1.5em; font-size:1em; border:none; border-radius:8px; background:var(--btn-bg); box-shadow:0 4px 8px var(--btn-shadow); cursor:pointer; transition:background .2s,transform .1s }
-        .controls button:hover, .controls input:hover { background:var(--btn-hover); transform:translateY(-2px) }
-        .controls input[type=range] { width:120px }
-        @media (max-width:600px) {
-            .controls { flex-direction:column; gap:1vh }
-            .controls button, .controls input { width:80vw }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            height: 100vh;
+            display: flex;
+            background: var(--primary-bg);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        video { display: none; }
+        canvas {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            bottom: 2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1vw;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            width: 95vw;
+        }
+        .controls button,
+        .controls input {
+            padding: 0.8em 1.5em;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            background: var(--btn-bg);
+            box-shadow: 0 4px 8px var(--btn-shadow);
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .controls button:hover,
+        .controls input:hover {
+            background: var(--btn-hover);
+            transform: translateY(-2px);
+        }
+        .controls input[type=range] {
+            width: 120px;
+        }
+        @media (max-width: 600px) {
+            .controls { flex-direction: column; gap: 1vh; }
+            .controls button,
+            .controls input { width: 80vw; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
@@ -48,83 +87,156 @@
         <button id="toggleFrame">TV Frame: On</button>
         <button id="uploadFrameURL">Frame URL</button>
         <button id="toggleMode">Mode: 0</button>
-        <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.1" title="Mask Threshold">
-        <input type="color" id="bgColor" value="#019147" title="Background Color">
+        <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.1">
+        <input type="color" id="bgColor" value="#019147">
         <button id="uploadLocal">Upload BG</button>
         <input type="file" id="fileBG" accept="image/*" style="display:none">
         <button id="uploadURL">BG URL</button>
         <button id="snapshot">Capture</button>
     </div>
     <script>
-        const video=document.createElement('video'),canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
-        let seg,cam,mode=0,maskThreshold=0.1,bgColor='#019147',bgImage=null;
-        let frameImage=new Image(),frameEnabled=true,chromaEnabled=true,uiVisible=true;
-        frameImage.crossOrigin='Anonymous';
-        frameImage.src='https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg';
+        const video = document.createElement('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-        document.getElementById('toggleUI').addEventListener('click',()=>{
-            uiVisible=!uiVisible;
-            document.querySelector('.controls').style.display=uiVisible?'flex':'none';
-            document.getElementById('toggleUI').innerText=uiVisible?'Hide UI':'Show UI';
-        });
+        let seg, cam;
+        let mode = 0;
+        let maskThreshold = 0.1;
+        let bgColor = '#019147';
+        let bgImage = null;
+        let frameImage = new Image();
+        let frameEnabled = true;
+        let chromaEnabled = true;
+        let uiVisible = true;
 
-        document.getElementById('toggleChroma').addEventListener('click',()=>{
-            chromaEnabled=!chromaEnabled;
-            document.getElementById('toggleChroma').innerText=`Chroma: ${chromaEnabled?'On':'Off'}`;
-        });
+        frameImage.crossOrigin = 'Anonymous';
+        frameImage.src = 'https://cdn.imgbin.com/23/6/14/imgbin-television-frame-tv-frame-material-brown-crt-tv-SLRQ9EETXFNKukJARdSm0yiBM.jpg';
 
-        document.getElementById('toggleFrame').addEventListener('click',()=>{
-            frameEnabled=!frameEnabled;
-            document.getElementById('toggleFrame').innerText=`TV Frame: ${frameEnabled?'On':'Off'}`;
-        });
-
-        document.getElementById('uploadFrameURL').addEventListener('click',()=>{
-            const url=prompt('Frame Image URL:'); if(!url) return;
-            frameImage.src=url;
+        document.getElementById('toggleUI').addEventListener('click', () => {
+            uiVisible = !uiVisible;
+            document.querySelector('.controls').style.display = uiVisible ? 'flex' : 'none';
+            document.getElementById('toggleUI').innerText = uiVisible ? 'Hide UI' : 'Show UI';
         });
 
-        document.getElementById('toggleMode').addEventListener('click',()=>{
-            mode=1-mode; seg.setOptions({modelSelection:mode});
-            document.getElementById('toggleMode').innerText=`Mode: ${mode}`;
+        document.getElementById('toggleChroma').addEventListener('click', () => {
+            chromaEnabled = !chromaEnabled;
+            document.getElementById('toggleChroma').innerText = `Chroma: ${chromaEnabled ? 'On' : 'Off'}`;
         });
 
-        document.getElementById('threshold').addEventListener('input',e=>maskThreshold=parseFloat(e.target.value));
-        document.getElementById('bgColor').addEventListener('input',e=>{bgColor=e.target.value;bgImage=null});
-        document.getElementById('uploadLocal').addEventListener('click',()=>document.getElementById('fileBG').click());
-        document.getElementById('fileBG').addEventListener('change',e=>{
-            const f=e.target.files[0]; if(!f) return;
-            const i=new Image(); i.src=URL.createObjectURL(f); i.onload=()=>bgImage=i;
-        });
-        document.getElementById('uploadURL').addEventListener('click',()=>{
-            const url=prompt('BG Image URL:'); if(!url) return;
-            const i=new Image(); i.crossOrigin='Anonymous'; i.src=url; i.onload=()=>bgImage=i;
-        });
-        document.getElementById('snapshot').addEventListener('click',()=>{
-            canvas.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`capture_${Date.now()}.png`;a.click()});
+        document.getElementById('toggleFrame').addEventListener('click', () => {
+            frameEnabled = !frameEnabled;
+            document.getElementById('toggleFrame').innerText = `TV Frame: ${frameEnabled ? 'On' : 'Off'}`;
         });
 
-        function onResults(r){
-            canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            if(chromaEnabled){
-                ctx.drawImage(r.segmentationMask,0,0,canvas.width,canvas.height);
-                ctx.globalCompositeOperation='source-in'; ctx.drawImage(video,0,0,canvas.width,canvas.height);
-                ctx.globalCompositeOperation='destination-over';
-                if(bgImage) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
-                else {ctx.fillStyle=bgColor;ctx.fillRect(0,0,canvas.width,canvas.height)}
-                ctx.globalCompositeOperation='source-over';
+        document.getElementById('uploadFrameURL').addEventListener('click', () => {
+            const url = prompt('Frame Image URL:');
+            if (url) frameImage.src = url;
+        });
+
+        document.getElementById('toggleMode').addEventListener('click', () => {
+            mode = 1 - mode;
+            seg.setOptions({ modelSelection: mode });
+            document.getElementById('toggleMode').innerText = `Mode: ${mode}`;
+        });
+
+        document.getElementById('threshold').addEventListener('input', e => {
+            maskThreshold = parseFloat(e.target.value);
+        });
+
+        document.getElementById('bgColor').addEventListener('input', e => {
+            bgColor = e.target.value;
+            bgImage = null;
+        });
+
+        document.getElementById('uploadLocal').addEventListener('click', () => {
+            document.getElementById('fileBG').click();
+        });
+
+        document.getElementById('fileBG').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => bgImage = img;
+        });
+
+        document.getElementById('uploadURL').addEventListener('click', () => {
+            const url = prompt('BG Image URL:');
+            if (!url) return;
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.src = url;
+            img.onload = () => bgImage = img;
+        });
+
+        document.getElementById('snapshot').addEventListener('click', () => {
+            canvas.toBlob(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `capture_${Date.now()}.png`;
+                a.click();
+            });
+        });
+
+        function onResults(results) {
+            if (!results.segmentationMask) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (chromaEnabled) {
+                // Draw mask
+                ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-in';
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'destination-over';
+
+                if (bgImage) {
+                    ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+                } else {
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                ctx.globalCompositeOperation = 'source-over';
             } else {
-                ctx.drawImage(video,0,0,canvas.width,canvas.height);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             }
-            if(frameEnabled) ctx.drawImage(frameImage,0,0,canvas.width,canvas.height);
+
+            if (frameEnabled && frameImage.complete) {
+                ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+            }
         }
 
-        async function setup(){
-            try{const s=await navigator.mediaDevices.getUserMedia({video:true});video.srcObject=s;await video.play()}catch(e){alert('Webcam error:'+e)}
-            seg=new SelfieSegmentation({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}`});
-            seg.setOptions({modelSelection:mode});seg.onResults(onResults);
-            cam=new Camera(video,{onFrame:async()=>await seg.send({image:video}),width:640,height:480});cam.start();
+        async function setup() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                await video.play();
+            } catch (e) {
+                console.error('Webcam error:', e);
+                return;
+            }
+
+            seg = new SelfieSegmentation({
+                locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+            });
+            seg.setOptions({ modelSelection: mode });
+            seg.onResults(onResults);
+
+            cam = new Camera(video, {
+                onFrame: async () => {
+                    try {
+                        await seg.send({ image: video });
+                    } catch (err) {
+                        console.error('Segmentation error:', err);
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+            cam.start();
         }
+
         setup();
     </script>
 </body>
